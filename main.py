@@ -10,6 +10,10 @@ from keras.optimizers import SGD
 from tempfile import mkdtemp,NamedTemporaryFile
 
 cwd = dirname(realpath(__file__))
+t_wind = 500
+genomefile = join(cwd,'data/hg19.in')
+sizefile = join(cwd,'data/hg19.size')
+variant_script = join(cwd,'variant.py')
 
 def parse_args():
     parser = argparse.ArgumentParser(description="Launch a list of commands on EC2.")
@@ -19,7 +23,7 @@ def parse_args():
     parser.add_argument("-p", "--predit", dest="predict", default=False, action='store_true',help="")
     parser.add_argument("-i", "--infile", dest="infile", default='',help="")
     parser.add_argument("-d", "--topdir", dest="topdir",default=cwd,help="")
-    parser.add_argument("-s", "--datasize", dest="datasize",help="")
+    parser.add_argument("-s", "--datasize", dest="datasize",default=1001,help="")
     parser.add_argument("-c", "--datacode", dest="datacode",default='data',help="")
     parser.add_argument("-v", "--cvfold", dest="cvfold",default='0',help="")
     parser.add_argument("-m", "--model", dest="model",default=join(cwd,'cnn/seq_128x3_5_5_2f_simple'),help="")
@@ -28,10 +32,20 @@ def parse_args():
     parser.add_argument("-hi", "--hyperiter", dest="hyperiter",default=9,help="")
     parser.add_argument("-cpg", dest="cpg",default=False,action='store_true',help="")
     parser.add_argument("-embed", dest="embed",default=False,action='store_true',help="")
+    parser.add_argument("-var_prep", dest="var_prep",default=False,action='store_true',help="")
+    parser.add_argument("-var_score", dest="var_score",default=False,action='store_true',help="")
     parser.add_argument("-modeltop", dest="modeltop",default=join(cwd,'models'),help="")
     parser.add_argument("-cpg_fa", "--cpg_fa",dest="cpg_fa",default='',help="")
     parser.add_argument("-cpg_out", "--cpg_out",dest="cpg_out",default='',help="")
+    parser.add_argument("-var_vcf", "--var_vcf",dest="var_vcf",default='',help="")
+    parser.add_argument("-var_vcf_tmp", "--var_vcf_tmp",dest="var_vcf_tmp",default='',help="")
+    parser.add_argument("-var_outdir", "--var_outdir",dest="var_outdir",default='',help="")
     return parser.parse_args()
+
+def createdir(mydir):
+    if exists(mydir):
+        system('rm -r ' + mydir)
+    makedirs(mydir)
 
 if __name__ == "__main__":
     args = parse_args()
@@ -45,7 +59,7 @@ if __name__ == "__main__":
     outdir = join(topdir,model_arch)
     if args.hyper or args.train:
         if not exists(outdir):
-            mkdir(outdir)
+            makedirs(outdir)
     architecture_file = join(outdir,model_arch+'_best_archit.json')
     optimizer_file = join(outdir,model_arch+'_best_optimer.pkl')
     weight_file = join(outdir,model_arch+'_bestmodel_weights.h5')
@@ -64,6 +78,7 @@ if __name__ == "__main__":
 
     sys.path.append(tmpdir)
     mymodel = __import__(model_arch)
+    allmodels = [x for x in listdir(args.modeltop) if isdir(join(args.modeltop,x))]
 
     if args.hyper:
         ## Hyper-parameter tuning
@@ -133,8 +148,7 @@ if __name__ == "__main__":
     if args.predict:
         model = model_from_json(open(architecture_file).read())
         model.load_weights(weight_file)
-        best_optim = cPickle.load(open(optimizer_file,'rb'))
-        model.compile(loss='binary_crossentropy', optimizer=best_optim,metrics=['accuracy'])
+        model.compile(loss='binary_crossentropy', optimizer=SGD(lr=0.01, momentum=0.9, nesterov=True),metrics=['accuracy'])
 
         predict_batch_num = int(subprocess.check_output('ls '+args.infile+'* | wc -l', shell=True).split()[0])
         print('Total number of batch to predict:',predict_batch_num)
@@ -143,7 +157,7 @@ if __name__ == "__main__":
         else:
             outfile = args.outfile
         if not exists(dirname(outfile)):
-            mkdir(dirname(outfile))
+            makedirs(dirname(outfile))
         with open(outfile,'w') as f:
             for i in range(predict_batch_num):
                 data1f = h5py.File(args.infile+str(i+1),'r')
@@ -152,14 +166,15 @@ if __name__ == "__main__":
                 for x in pred:
                     f.write('%f\n' % x[0])
     if args.embed:
-        t_outdir = join('/indir',args.cpg_fa+'.embed_h5')
+        assert(args.cpg_out != '')
+        t_outdir = join(args.cpg_out,'embedded.h5')
         if not exists(t_outdir):
             makedirs(t_outdir)
         t_outfile = join(t_outdir,'data')
         tsv_file = NamedTemporaryFile(delete=False).name
         labelfile = NamedTemporaryFile(delete=False).name
 
-        system(' '.join(['paste - - -d\' \'','<',join('/indir',args.cpg_fa),'>',tsv_file]))
+        system(' '.join(['paste - - -d\' \'','<',args.cpg_fa,'>',tsv_file]))
         sample_size = int(subprocess.check_output('wc '+tsv_file, shell=True).split()[0])
 
         with open(labelfile,'w') as f:
@@ -171,13 +186,12 @@ if __name__ == "__main__":
         system('rm -r '+labelfile)
 
     if args.cpg:
-        predict_batch_num = int(subprocess.check_output('ls '+ join('/indir',args.cpg_fa+'.embed_h5','data.batch*')+' | wc -l', shell=True).split()[0])
+        assert(args.cpg_out != '')
+        predict_batch_num = int(subprocess.check_output('ls '+ join(args.cpg_out,'embedded.h5','data.batch*')+' | wc -l', shell=True).split()[0])
         print('Total number of batch to predict:',predict_batch_num)
-        t_outdir = join('/indir',args.cpg_fa+'.pred') if args.cpg_out == '' else args.cpg_out
-        if not exists(t_outdir):
-            makedirs(t_outdir)
+        t_outdir = join(args.cpg_out,'CpGenie_pred')
+        createdir(t_outdir)
 
-        allmodels = [x for x in listdir(args.modeltop) if isdir(join(args.modeltop,x))]
         for mymodel in allmodels:
             print(mymodel)
             t_modeldir = join(args.modeltop,mymodel,model_arch)
@@ -190,10 +204,79 @@ if __name__ == "__main__":
 
             with open(join(t_outdir,mymodel),'w') as f:
                 for i in range(predict_batch_num):
-                    data1f = h5py.File(join('/indir',args.cpg_fa+'.embed_h5','data.batch'+str(i+1)),'r')
+                    data1f = h5py.File(join(args.cpg_out,'embedded.h5','data.batch'+str(i+1)),'r')
                     data1 = data1f['data']
                     pred = model.predict(data1)
                     for x in pred:
                         f.write('%f\n' % x[0])
+
+    if args.var_prep:
+        assert(args.var_vcf != '')
+        assert(args.var_outdir != '')
+        if args.var_vcf_tmp == '':
+            args.var_vcf_tmp = join(args.var_outdir,'CpGenie_processed')
+        vcf_chr_dir = join(args.var_vcf_tmp,'vcf_chrsplit')
+        fa_split_dir = join(args.var_vcf_tmp,'fasta')
+
+    	### for each file, split again by chr
+        createdir(vcf_chr_dir)
+        system(' '.join(['python',join(cwd,'helper','splitVCF.py'),args.var_vcf,vcf_chr_dir]))
+
+        ### VCF to FA
+        vcf2fasta_script = join(cwd,'helper/vcf2fasta2.R')
+        system(' '.join(['Rscript',vcf2fasta_script,vcf_chr_dir,genomefile,sizefile,fa_split_dir,str(t_wind*2),str(t_wind*2),'T']))
+
+        ### Find CpGs around variants
+        fafile = join(fa_split_dir,'all.fa')
+        system(' '.join(['python',variant_script,fafile,str(t_wind),'1','1','1','1','1']))
+
+    if args.var_score:
+        assert(args.var_vcf != '')
+        assert(args.var_outdir != '')
+        if args.var_vcf_tmp == '':
+            args.var_vcf_tmp = join(args.var_outdir,'CpGenie_processed')
+        fa_split_dir = join(args.var_vcf_tmp,'fasta')
+        fafile = join(fa_split_dir,'all.fa')
+
+        scores_topdir = join(args.var_outdir,'per_allele')
+        if not exists(scores_topdir):
+            makedirs(scores_topdir)
+
+        for mymodel in allmodels:
+            outfile = join(scores_topdir,mymodel)
+            featurecode= mymodel + '_' + basename(args.model)
+            system(' '.join(['python',variant_script,fafile,str(t_wind),outfile,args.model,join(args.modeltop,mymodel),featurecode,'2']))
+
+
+        eqtl_score_processed_dir_allencode  = join(args.var_outdir,'CpGenie_pred')
+
+        def logfold(ref,alt,pseudo):
+            if ref == 1.0 or (1-ref) == 1.0:
+                ref += np.sign(0.5 - ref)*pseudo
+            if alt == 1.0 or (1-alt) == 1.0:
+                alt += np.sign(0.5 - alt)* pseudo
+            return abs(np.log(ref/(1-ref))-np.log(alt/(1-alt)))
+
+        pseudo = 1e-6
+        def gwas_feature_new(ref,alt):
+            return [abs(ref[0]-alt[0]),abs(ref[1]-alt[1]),logfold(ref[1],alt[1],pseudo), abs(ref[2]-alt[2]),logfold(ref[2],alt[2],pseudo)]
+
+        with open(join(eqtl_score_processed_dir_allencode),'w') as fout:
+            t_data = None
+            for mymodel in allmodels:
+                with open(join(scores_topdir,mymodel)) as fin:
+                    fin.readline()
+                    t_t_data = np.asarray([map(float,x.split()) for x in fin])
+                    t_feature = []
+                    for x in range(len(t_t_data)/2):
+                        ref = t_t_data[2*x]
+                        alt = t_t_data[2*x+1]
+                        t_feature.append(gwas_feature_new(ref,alt))
+                    t_feature = np.asarray(t_feature)
+                    t_data = t_feature if t_data is None else np.hstack((t_data,t_feature))
+            header = [[mymodel+'_absdiff_sum',mymodel+'_absdiff_mean',mymodel+'_absdiff_LO_mean',mymodel+'_absdiff_max',mymodel+'_absdiff_LO_max'] for mymodel in allmodels]
+            fout.write('%s\n' % '\t'.join([y for x in header for y in x]))
+            for x in t_data:
+                fout.write('%s\n' % '\t'.join(map(str,x)))
 
     system('rm -r ' + tmpdir)
