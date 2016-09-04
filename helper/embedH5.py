@@ -118,7 +118,6 @@ def manifest(out_filename,batchnum,prefix):
 
 def parse_args():
     parser = argparse.ArgumentParser(description="Convert sequence and target for Caffe")
-    user = pwd.getpwuid(os.getuid())[0]
 
     # Positional (unnamed) arguments:
     parser.add_argument("infile",  type=str, help="Sequence in FASTA/TSV format (with .fa/.fasta or .tsv extension)")

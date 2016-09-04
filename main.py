@@ -248,7 +248,7 @@ if __name__ == "__main__":
             system(' '.join(['python',variant_script,fafile,str(t_wind),outfile,args.model,join(args.modeltop,mymodel),featurecode,'2']))
 
 
-        eqtl_score_processed_dir_allencode  = join(args.var_outdir,'CpGenie_pred')
+        eqtl_score_processed_dir_allencode  = join(args.var_outdir,'CpGenie_var_pred')
 
         def logfold(ref,alt,pseudo):
             if ref == 1.0 or (1-ref) == 1.0:
