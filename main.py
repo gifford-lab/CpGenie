@@ -35,6 +35,7 @@ def parse_args():
     parser.add_argument("-var_prep", dest="var_prep",default=False,action='store_true',help="")
     parser.add_argument("-var_score", dest="var_score",default=False,action='store_true',help="")
     parser.add_argument("-modeltop", dest="modeltop",default=join(cwd,'models'),help="")
+    parser.add_argument("-singlemodel", dest="sgmodel",default=False,action='store_true',help="")
     parser.add_argument("-cpg_fa", "--cpg_fa",dest="cpg_fa",default='',help="")
     parser.add_argument("-cpg_out", "--cpg_out",dest="cpg_out",default='',help="")
     parser.add_argument("-var_vcf", "--var_vcf",dest="var_vcf",default='',help="")
@@ -78,7 +79,11 @@ if __name__ == "__main__":
 
     sys.path.append(tmpdir)
     mymodel = __import__(model_arch)
-    allmodels = [x for x in listdir(args.modeltop) if isdir(join(args.modeltop,x))]
+    if args.sgmodel:
+        allmodels = [basename(args.modeltop)]
+        args.modeltop = dirname(args.modeltop)
+    else:
+        allmodels = [x for x in listdir(args.modeltop) if isdir(join(args.modeltop,x))]
 
     if args.hyper:
         ## Hyper-parameter tuning
