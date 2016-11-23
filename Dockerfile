@@ -15,6 +15,7 @@ COPY variant.py /scripts/
 COPY cnn /scripts/cnn/
 COPY helper /scripts/helper/
 COPY data /scripts/data/
+RUN mkdir /scripts/models
 #RUN cd /scripts/;wget http://gerv.csail.mit.edu/CpGenie_models.tar.gz -q;tar -zxvf CpGenie_models.tar.gz
 #RUN cd /scripts/data;wget http://gerv.csail.mit.edu/hg19.in.lzo -q; lzop -d hg19.in.lzo
 RUN mkdir /runtheano/;chmod -R 777 /runtheano/
