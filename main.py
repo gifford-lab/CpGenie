@@ -10,7 +10,6 @@ from keras.optimizers import SGD
 from tempfile import mkdtemp,NamedTemporaryFile
 
 cwd = dirname(realpath(__file__))
-t_wind = 500
 genomefile = join(cwd,'data/hg19.in')
 sizefile = join(cwd,'data/hg19.size')
 variant_script = join(cwd,'variant.py')
@@ -41,6 +40,8 @@ def parse_args():
     parser.add_argument("-var_vcf", "--var_vcf",dest="var_vcf",default='',help="")
     parser.add_argument("-var_vcf_tmp", "--var_vcf_tmp",dest="var_vcf_tmp",default='',help="")
     parser.add_argument("-var_outdir", "--var_outdir",dest="var_outdir",default='',help="")
+    parser.add_argument("-w", "--windsize_single",dest="windsize_single",default=500,type=int,help="")
+    parser.add_argument("-r", "--cpg_range",dest="cpg_range",default=0,type=int,help="")
     return parser.parse_args()
 
 def createdir(mydir):
@@ -56,6 +57,8 @@ if __name__ == "__main__":
     DATASIZE = args.datasize
     model_arch = basename(args.model)
     data_code = args.datacode
+    t_wind = args.windsize_single
+    cpg_range = args.cpg_range if args.cpg_range !=0 else t_wind
 
     outdir = join(topdir,model_arch)
     if args.hyper or args.train:
@@ -218,6 +221,7 @@ if __name__ == "__main__":
     if args.var_prep:
         assert(args.var_vcf != '')
         assert(args.var_outdir != '')
+        chdir(cwd)
         if args.var_vcf_tmp == '':
             args.var_vcf_tmp = join(args.var_outdir,'CpGenie_processed')
         vcf_chr_dir = join(args.var_vcf_tmp,'vcf_chrsplit')
@@ -229,11 +233,11 @@ if __name__ == "__main__":
 
         ### VCF to FA
         vcf2fasta_script = join(cwd,'helper/vcf2fasta2.R')
-        system(' '.join(['Rscript',vcf2fasta_script,vcf_chr_dir,genomefile,sizefile,fa_split_dir,str(t_wind*2),str(t_wind*2),'T']))
+        system(' '.join(['Rscript',vcf2fasta_script,vcf_chr_dir,genomefile,sizefile,fa_split_dir,str(t_wind+cpg_range),str(t_wind+cpg_range),'T']))
 
         ### Find CpGs around variants
         fafile = join(fa_split_dir,'all.fa')
-        system(' '.join(['python',variant_script,fafile,str(t_wind),'1','1','1','1','1']))
+        system(' '.join(['python',variant_script,fafile,str(t_wind),'1','1','1','1','1',str(cpg_range)]))
 
     if args.var_score:
         assert(args.var_vcf != '')
@@ -250,7 +254,7 @@ if __name__ == "__main__":
         for mymodel in allmodels:
             outfile = join(scores_topdir,mymodel)
             featurecode= mymodel + '_' + basename(args.model)
-            system(' '.join(['python',variant_script,fafile,str(t_wind),outfile,args.model,join(args.modeltop,mymodel),featurecode,'2']))
+            system(' '.join(['python',variant_script,fafile,str(t_wind),outfile,args.model,join(args.modeltop,mymodel),featurecode,'2',str(cpg_range)]))
 
 
         eqtl_score_processed_dir_allencode  = join(args.var_outdir,'CpGenie_var_pred') if not args.sgmodel else join(args.var_outdir,'CpGenie_var_pred.'+allmodels[0])
@@ -260,11 +264,11 @@ if __name__ == "__main__":
                 ref += np.sign(0.5 - ref)*pseudo
             if alt == 1.0 or (1-alt) == 1.0:
                 alt += np.sign(0.5 - alt)* pseudo
-            return abs(np.log(ref/(1-ref))-np.log(alt/(1-alt)))
+            return np.log(ref/(1-ref))-np.log(alt/(1-alt))
 
         pseudo = 1e-6
         def gwas_feature_new(ref,alt):
-            return [abs(ref[0]-alt[0]),abs(ref[1]-alt[1]),logfold(ref[1],alt[1],pseudo), abs(ref[2]-alt[2]),logfold(ref[2],alt[2],pseudo)]
+            return [ref[0]-alt[0],ref[1]-alt[1],logfold(ref[1],alt[1],pseudo), ref[2]-alt[2],logfold(ref[2],alt[2],pseudo)]
 
         with open(join(eqtl_score_processed_dir_allencode),'w') as fout:
             t_data = None

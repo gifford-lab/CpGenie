@@ -24,7 +24,7 @@ def getseq(seq,revseq,startpos,endpos,f,wind,anno):
     return cnt
 
 def slave(args):
-    data,wind,index,outdir,anno = args[:]
+    data,wind,index,outdir,anno,cpg_range = args[:]
     ref_seq,alt_seq = data[:]
     dict={'A':'T','C':'G','G':'C','T':'A','N':'N'}
     ref_seq_rev = [dict[x]for x in ref_seq]
@@ -37,10 +37,10 @@ def slave(args):
     ref_seq_len = len(ref_seq)
     alt_seq_len = len(alt_seq)
     with open(ref_2evlfa,'w') as fref,open(alt_2evlfa,'w') as falt:
-        ref_len += getseq(ref_seq,ref_seq_rev,wind+1,2*wind,fref,wind,anno[0])
-        alt_len += getseq(alt_seq,alt_seq_rev,wind+1,2*wind,falt,wind,anno[1])
-        ref_len += getseq(ref_seq,ref_seq_rev,ref_seq_len-2*wind+1,ref_seq_len-wind,fref,wind,anno[0])
-        alt_len += getseq(alt_seq,alt_seq_rev,alt_seq_len-2*wind+1,alt_seq_len-wind,falt,wind,anno[1])
+        ref_len += getseq(ref_seq,ref_seq_rev,wind+1,wind+cpg_range,fref,wind,anno[0])
+        alt_len += getseq(alt_seq,alt_seq_rev,wind+1,wind+cpg_range,falt,wind,anno[1])
+        ref_len += getseq(ref_seq,ref_seq_rev,ref_seq_len-wind-cpg_range+1,ref_seq_len-wind,fref,wind,anno[0])
+        alt_len += getseq(alt_seq,alt_seq_rev,alt_seq_len-wind-cpg_range+1,alt_seq_len-wind,falt,wind,anno[1])
     try:
         assert(ref_len==alt_len)
     except AssertionError:
@@ -54,6 +54,7 @@ modelfile = sys.argv[4]
 featuredir = sys.argv[5]
 featurecode = sys.argv[6]
 order = sys.argv[7].split('_')
+cpg_range = int(sys.argv[8])
 
 cnt = 0
 ref = []
@@ -85,7 +86,7 @@ if not exists(convert_dir):
 if '1' in order:
     outdir = mkdtemp()
 
-    args = [[data[idx],windsize,idx,outdir,anno[idx]]for idx in range(variant_num)]
+    args = [[data[idx],windsize,idx,outdir,anno[idx],cpg_range]for idx in range(variant_num)]
     pool = mp.Pool(processes=20)
     alllength = pool.map(slave,args)
     pool.close()
