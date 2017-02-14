@@ -4,7 +4,7 @@ A deep learning method for predicting DNA methylation level of CpG sites from th
 ## Dependencies
 + [Docker](https://www.docker.com/)
 + [NVIDIA-docker](https://github.com/NVIDIA/nvidia-docker)
-+ NVIDIA driver: currently we support NVIDIA 346.46 (CUDA 7.0) and NVIDIA 367.48 (CUDA 8.0)
++ [NVIDIA CUDA](https://developer.nvidia.com/cuda-zone): currently we support CUDA 7.0 and CUDA 8.0.
 
 ## Predict DNA methylation level of CpG sites
 + Prepare a [FASTA](https://en.wikipedia.org/wiki/FASTA_format) file of the 1001 bp sequence context centered at the CpG you wish to predict, one sequence for one CpG. The 501 nucleotide should be the 'C' of the CpG.
@@ -63,3 +63,6 @@ A deep learning method for predicting DNA methylation level of CpG sites from th
 			+ log odds of the max methylation within 500 bp
 			+ mean methylation within 500 bp
 			+ log odds of the mean methylation within 500 bp
+
+## Running with CPU
+You can run CpGenie on CPU  by replacing all the `nvidia-docker` with `docker`, but it will extremely slow and thus is highly not recommended.
