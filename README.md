@@ -40,8 +40,9 @@ Note: You can run CpGenie on CPU  by replacing all the `nvidia-docker` below wit
 			```bash
 				docker pull haoyangz/cpgenie:CUDA_VER
 				mkdir -p OUTPUT_DIR
-				nvidia-docker run -u $(id -u) -v FASTA_FILE:/in.fa -v OUTPUT_DIR:/outdir -v YOUR_MODEL_DIR:/modeldir \
-						--rm haoyangz/cpgenie:CUDA_VER python main.py ORDER -cpg_fa /in.fa -cpg_out /outdir \
+				nvidia-docker run -u $(id -u) -v FASTA_FILE:/in.fa -v OUTPUT_DIR:/outdir \
+						-v YOUR_MODEL_DIR:/modeldir --rm haoyangz/cpgenie:CUDA_VER \
+						python main.py ORDER -cpg_fa /in.fa -cpg_out /outdir \
 							-modeltop /modeldir/models
 			```
 
