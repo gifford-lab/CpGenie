@@ -65,4 +65,4 @@ A deep learning method for predicting DNA methylation level of CpG sites from th
 			+ log odds of the mean methylation within 500 bp
 
 ## Running with CPU
-You can run CpGenie on CPU  by replacing all the `nvidia-docker` with `docker`, but it will extremely slow and thus is highly not recommended.
+You can run CpGenie on CPU  by replacing all the `nvidia-docker` with `docker`, but it will be extremely slow and thus highly not recommended.
