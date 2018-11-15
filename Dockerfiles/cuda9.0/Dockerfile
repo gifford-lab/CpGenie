@@ -1,4 +1,4 @@
-FROM haoyangz/keras-docker:cuda7.0
+FROM haoyangz/keras-docker:cuda9.0
 MAINTAINER Haoyang Zeng  <haoyangz@mit.edu>
 
 RUN pip install --upgrade --no-deps git+https://github.com/maxpumperla/hyperas@0.1.2
